@@ -143,8 +143,9 @@ This project is licensed under the MIT License. See the [LICENSE](./LICENSE) fil
 
 Special thanks to our partners:
 
-- **XMTP**: For wallet-based communication technology.
-- **Flow Blockchain**: For scalable and secure smart contracts.
+- **XMTP**: For wallet-based communication technology. [[Github](https://github.com/xmtp) | [Website](https://xmtp.org/)]
+- **Flow Blockchain**: For scalable and secure smart contracts. [[Github](https://github.com/onflow) | [Website](https://flow.com
+)]
 
 ## 👥 Who We Are?
 
