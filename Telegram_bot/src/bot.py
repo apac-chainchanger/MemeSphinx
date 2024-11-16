@@ -24,7 +24,7 @@ class MemeCoinSphinxBot:
         # 이미지 경로 확인 및 설정
         self.image_dir = Path(config.IMAGE_DIR)
         self._verify_image_paths()
-        
+    
     def _verify_image_paths(self):
         """Verify that all required images exist"""
         required_images = {
@@ -43,7 +43,7 @@ class MemeCoinSphinxBot:
         if not config.TELEGRAM_TOKEN or not config.TELEGRAM_TOKEN.strip():
             raise ValueError("Invalid Telegram token")
             
-        # Create application with proper error handlers
+        # Create application
         application = Application.builder().token(config.TELEGRAM_TOKEN).build()
         
         # Add handlers
@@ -61,7 +61,6 @@ class MemeCoinSphinxBot:
     async def _error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors occurring in the dispatcher"""
         print(f"Error occurred: {context.error}")
-        # 여기에 추가적인 에러 처리 로직 구현 가능
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle the /start command"""
@@ -78,10 +77,8 @@ class MemeCoinSphinxBot:
             )
             return
         
-        # Send welcome image
         try:
-            happy_sphinx = self.image_dir / "happySphinx.png"
-            with open(happy_sphinx, "rb") as photo:
+            with open(self.image_dir / "happySphinx.png", "rb") as photo:
                 await context.bot.send_photo(
                     chat_id=update.effective_chat.id,
                     photo=photo,
@@ -93,12 +90,24 @@ class MemeCoinSphinxBot:
             await update.effective_message.reply_text(GAME_RULES, parse_mode='Markdown')
         
         try:
-            response = await self.agent.process_message("start_new_game")
+            # Get initial attempts count
+            attempts_left = self.game_manager.get_attempts_left(user_id)
+            
+            # Start new game
+            response = await self.agent.process_message("start_new_game", attempts_left)
             if response:
                 await update.effective_message.reply_text(
                     f"🎮 {response}",
                     parse_mode='Markdown'
                 )
+                
+                # Get first riddle
+                first_riddle = self.agent.get_next_hint()
+                await update.effective_message.reply_text(
+                    f"Here's your first riddle:\n\n{first_riddle}",
+                    parse_mode='Markdown'
+                )
+                
         except Exception as e:
             print(f"Error starting game: {e}")
             await update.effective_message.reply_text(
@@ -114,10 +123,9 @@ class MemeCoinSphinxBot:
         user_id = update.effective_user.id if update.effective_user else 0
         message_text = update.effective_message.text
         
-        # 디버그 로그 추가
         print(f"Received message: {message_text}")
         
-        # Check if user has active session
+        # Check user session
         session = self.game_manager.get_session(user_id)
         
         if session.state == GameState.NOT_STARTED:
@@ -126,73 +134,133 @@ class MemeCoinSphinxBot:
                 parse_mode='Markdown'
             )
             return
+            
+        # Check cooldown
+        if session.state == GameState.COOLDOWN:
+            _, remaining_time = self.game_manager.check_cooldown(user_id)
+            await update.effective_message.reply_text(
+                COOLDOWN_MESSAGE.format(cooldown=remaining_time),
+                parse_mode='Markdown'
+            )
+            return
+            
+        # Handle wallet address input
+        if session.state == GameState.WAITING_FOR_WALLET:
+            if not message_text.startswith('0x'):
+                await update.effective_message.reply_text(
+                    INVALID_WALLET_MESSAGE,
+                    parse_mode='Markdown'
+                )
+                return
+                
+            try:
+                response = await self.agent.process_message(
+                    f"send_reward_to_wallet {message_text}",
+                    attempts_left=0
+                )
+                await update.effective_message.reply_text(
+                    REWARD_SENT_MESSAGE.format(wallet_address=message_text),
+                    parse_mode='Markdown'
+                )
+                self.game_manager.start_game(user_id)
+                return
+            except Exception as e:
+                print(f"Error processing wallet: {e}")
+                await update.effective_message.reply_text(
+                    "Error processing wallet address. Please try again.",
+                    parse_mode='Markdown'
+                )
+                return
+
+        # Process regular game message
+        attempts_left = self.game_manager.get_attempts_left(user_id)
         
-        # Process message through agent
-        response = await self.agent.process_message(message_text)
-        print(f"Agent response: {response}")  # 디버그 로그 추가
+        # Process the guess
+        response = await self.agent.process_message(message_text, attempts_left)
+        print(f"Agent response: {response}")
         
         # Handle victory
-        if "VICTORY" in response.upper():
-            print("Victory condition detected")  # 디버그 로그 추가
+        if "[VICTORY]" in response:
             try:
-                image_path = self.image_dir / "SadSphinx.png"
-                print(f"Trying to open image at: {image_path}")  # 디버그 로그 추가
-                
-                if not image_path.exists():
-                    print(f"Image file does not exist at {image_path}")  # 디버그 로그 추가
-                    raise FileNotFoundError(f"Image not found: {image_path}")
-                    
-                with open(image_path, "rb") as photo:
-                    print("Successfully opened image file")  # 디버그 로그 추가
+                with open(self.image_dir / "SadSphinx.png", "rb") as photo:
                     await context.bot.send_photo(
                         chat_id=update.effective_chat.id,
                         photo=photo,
                         caption=VICTORY_MESSAGE,
                         parse_mode='Markdown'
                     )
-                    print("Successfully sent victory image")  # 디버그 로그 추가
                 self.game_manager.set_waiting_for_wallet(user_id)
             except Exception as e:
-                print(f"Error sending victory image: {e}")  # 디버그 로그 추가
+                print(f"Error sending victory image: {e}")
                 await update.effective_message.reply_text(
-                    f"VICTORY_MESSAGE (Image error: {str(e)})",
+                    VICTORY_MESSAGE,
                     parse_mode='Markdown'
                 )
-        
-        # Handle defeat
-        elif "DEFEAT" in response.upper():
-            print("Defeat condition detected")  # 디버그 로그 추가
-            try:
-                image_path = self.image_dir / "SuperHappySphinx.png"
-                print(f"Trying to open image at: {image_path}")  # 디버그 로그 추가
                 
-                if not image_path.exists():
-                    print(f"Image file does not exist at {image_path}")  # 디버그 로그 추가
-                    raise FileNotFoundError(f"Image not found: {image_path}")
+        # Handle wrong answer
+        elif "[WRONG]" in response:
+            has_attempts, attempts_left = self.game_manager.use_attempt(user_id)
+            if has_attempts:
+                try:
+                    # 틀린 횟수에 따라 다른 이미지 사용
+                    image_file = "SuperHappySphinx2.png" if attempts_left == 1 else "SuperHappySphinx.png"
                     
-                with open(image_path, "rb") as photo:
-                    print("Successfully opened image file")  # 디버그 로그 추가
-                    await context.bot.send_photo(
-                        chat_id=update.effective_chat.id,
-                        photo=photo,
-                        caption=DEFEAT_MESSAGE.format(
+                    with open(self.image_dir / image_file, "rb") as photo:
+                        await context.bot.send_photo(
+                            chat_id=update.effective_chat.id,
+                            photo=photo,
+                            caption=response,
+                            parse_mode='Markdown'
+                        )
+                except Exception as e:
+                    print(f"Error sending wrong answer image: {e}")
+                    await update.effective_message.reply_text(
+                        response,
+                        parse_mode='Markdown'
+                    )
+            else:
+                # No attempts left - handle defeat
+                try:
+                    # 모든 시도를 소진했을 때는 SuperSuperHappySphinx.png 사용
+                    with open(self.image_dir / "SuperSuperHappySphinx.png", "rb") as photo:
+                        await context.bot.send_photo(
+                            chat_id=update.effective_chat.id,
+                            photo=photo,
+                            caption=DEFEAT_MESSAGE.format(
+                                coin_name=self.game_manager.get_current_coin(user_id),
+                                cooldown=config.COOLDOWN_SECONDS
+                            ),
+                            parse_mode='Markdown'
+                        )
+                    self.game_manager.set_cooldown(user_id, config.COOLDOWN_SECONDS)
+                except Exception as e:
+                    print(f"Error sending defeat image: {e}")
+                    await update.effective_message.reply_text(
+                        DEFEAT_MESSAGE.format(
                             coin_name=self.game_manager.get_current_coin(user_id),
                             cooldown=config.COOLDOWN_SECONDS
                         ),
                         parse_mode='Markdown'
                     )
-                    print("Successfully sent defeat image")  # 디버그 로그 추가
+        
+        # Handle defeat
+        elif "[DEFEAT]" in response:
+            try:
+                with open(self.image_dir / "SuperHappySphinx.png", "rb") as photo:
+                    await context.bot.send_photo(
+                        chat_id=update.effective_chat.id,
+                        photo=photo,
+                        caption=response,
+                        parse_mode='Markdown'
+                    )
                 self.game_manager.set_cooldown(user_id, config.COOLDOWN_SECONDS)
             except Exception as e:
-                print(f"Error sending defeat image: {e}")  # 디버그 로그 추가
+                print(f"Error sending defeat image: {e}")
                 await update.effective_message.reply_text(
-                    DEFEAT_MESSAGE.format(
-                        coin_name=self.game_manager.get_current_coin(user_id),
-                        cooldown=config.COOLDOWN_SECONDS
-                    ),
+                    response,
                     parse_mode='Markdown'
                 )
-        
+                
         # Regular response
         else:
             await update.effective_message.reply_text(

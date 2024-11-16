@@ -9,8 +9,9 @@ class UserSession:
     state: GameState
     cooldown_until: float = 0
     hint_count: int = 0
-    last_riddle: str = ""
+    attempts_left: int = 3  # 추가: 남은 시도 횟수
     current_coin: str = ""
+    last_hint: str = ""
 
 class GameManager:
     def __init__(self):
@@ -25,23 +26,34 @@ class GameManager:
             )
         return self.sessions[user_id]
     
-    def start_game(self, user_id: int) -> bool:
+    def start_game(self, user_id: int) -> tuple[bool, int]:
         """Start a new game for the user"""
         session = self.get_session(user_id)
         
-        # Check if user is in cooldown
+        # Check cooldown
         if session.state == GameState.COOLDOWN:
             if time() < session.cooldown_until:
                 remaining_time = int(session.cooldown_until - time())
                 return False, remaining_time
         
-        # Reset session state
+        # Reset session
         session.state = GameState.IN_PROGRESS
         session.hint_count = 0
+        session.attempts_left = 3
         session.cooldown_until = 0
-        session.last_riddle = ""
         session.current_coin = ""
+        session.last_hint = ""
         return True, 0
+    
+    def use_attempt(self, user_id: int) -> tuple[bool, int]:
+        """사용자가 시도를 사용할 때 호출. 남은 시도 횟수를 반환"""
+        session = self.get_session(user_id)
+        session.attempts_left -= 1
+        return session.attempts_left > 0, session.attempts_left
+    
+    def get_attempts_left(self, user_id: int) -> int:
+        """남은 시도 횟수 반환"""
+        return self.get_session(user_id).attempts_left
     
     def add_hint(self, user_id: int, riddle: str) -> bool:
         """Add a hint and store the riddle"""
@@ -50,9 +62,9 @@ class GameManager:
             return False
         
         session.hint_count += 1
-        session.last_riddle = riddle
+        session.last_hint = riddle
         return session.hint_count <= 3
-    
+
     def set_cooldown(self, user_id: int, duration: int) -> None:
         """Set cooldown for the user"""
         session = self.get_session(user_id)

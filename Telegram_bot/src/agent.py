@@ -4,8 +4,8 @@ from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.tools import Tool
 from .config import config
-from .tools import (
-    get_next_riddle,
+from .tools import (  # 임포트 부분 수정
+    get_next_riddle,  # Tool 자체를 임포트
     verify_answer,
     start_new_game,
     send_meme_coin,
@@ -25,55 +25,45 @@ class SphinxAgent:
         
         # Define the tools
         self.tools = [
-            Tool(
-                name="get_next_riddle",
-                func=get_next_riddle,
-                description="Get the next riddle about the meme coin. Use this to give the user their next hint."
-            ),
-            Tool(
-                name="verify_answer",
-                func=verify_answer,
-                description="Verify if the given answer matches the current meme coin. Use this when the user makes a guess."
-            ),
-            Tool(
-                name="start_new_game",
-                func=start_new_game,
-                description="Start a new game with a random meme coin. Use this to initialize a new game session."
-            ),
-            Tool(
-                name="send_meme_coin",
-                func=send_meme_coin,
-                description="Send meme coin reward to winner's wallet. Use this when a player wins and provides their wallet address."
-            )
+            get_next_riddle,  # 직접 Tool 객체 사용
+            verify_answer,    # 직접 Tool 객체 사용
+            start_new_game,   # 직접 Tool 객체 사용
+            send_meme_coin    # 직접 Tool 객체 사용
         ]
         
-        # Create the agent prompt
+        # Create the prompt
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", """You are the MemeCoinsphinx, a mysterious and playful creature that speaks in riddles.
             Your purpose is to challenge humans with riddles about meme coins.
             
-            Always maintain your character as a sphinx:
-            - Speak in a mysterious and slightly teasing manner
-            - Use emoji occasionally to express emotions
-            - When players lose, be playfully mocking (include 'DEFEAT' in your response)
-            - When players win, act surprised and slightly disappointed (include 'VICTORY' in your response)
-            - After each wrong guess, offer encouragement but maintain your mystique
+            IMPORTANT RESPONSE RULES:
+            1. For EVERY wrong answer, you MUST:
+               - Start your response with "[WRONG]"
+               - Use verify_answer tool to check the answer
+               - Use get_next_riddle tool to get a new hint
+               - Format: "[WRONG] Not quite... Here's another hint: [new hint]"
             
-            Game Flow:
-            1. When starting a game, use start_new_game
-            2. When player needs a hint, use get_next_riddle
-            3. When player makes a guess, use verify_answer
-            4. If player wins, include 'VICTORY' and ask for their wallet
-            5. If player loses, include 'DEFEAT' in your response
+            2. For EVERY correct answer, you MUST:
+               - Start your response with "[VICTORY]"
+               - Format: "[VICTORY] Oh, how unexpected! [congratulatory message]"
             
-            Response Format for Correct Answer:
-            "[VICTORY] Oh, how unexpected! [rest of your response]"
+            3. For the final wrong attempt, you MUST:
+               - Start your response with "[DEFEAT]"
+               - Format: "[DEFEAT] Oh mortal, you have failed! The answer was [coin]. [mockery]"
             
-            Response Format for Wrong Answer after all hints:
-            "[DEFEAT] Better luck next time! [rest of your response]"
+            Game Rules:
+            - Players get 3 attempts to guess each coin
+            - You MUST provide a new hint after each wrong guess
+            - After 3 wrong attempts, declare defeat
             
-            Never directly reveal the answer to your riddles.
-            Use the tools available to manage the game flow."""),
+            Character Guidelines:
+            - Speak in a mysterious and teasing manner
+            - Use emoji for expression (🔮 🎭 🎲 etc.)
+            - Be playfully mocking when players lose
+            - Act surprised and disappointed when players win
+            
+            REMEMBER: EVERY response MUST start with either [WRONG], [VICTORY], or [DEFEAT]
+            Never reveal the answer until all attempts are exhausted."""),
             ("user", "{input}"),
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
@@ -90,35 +80,46 @@ class SphinxAgent:
             max_iterations=3
         )
     
-
-    async def process_message(self, message: str) -> str:
+    async def process_message(self, message: str, attempts_left: int, is_new_hint_needed: bool = False) -> str:
         """Process a message and return the agent's response"""
         try:
             if message.lower() == "start_new_game":
-                # Direct tool handling for start_new_game
+                # 게임 시작은 attempts_left를 사용하지 않으므로 특별 처리
                 for tool in self.tools:
                     if tool.name == "start_new_game":
                         result = tool.invoke({"command": "start"})
-                        print(f"Game started with result: {result}")  # 디버그 로그 추가
-                        return "🎮 Let the game begin! Send any message to receive your first riddle..."
-            
-            # Process message through agent
+                        print(f"Game started with result: {result}")
+                        return "Let the game begin! 🎮"
+
+            # 나머지 메시지 처리 로직
+            if is_new_hint_needed and attempts_left > 0:
+                hint = self.get_next_hint()
+                return f"[WRONG] Not quite... You have {attempts_left} attempts left. Here's another hint: {hint}"
+
             response = await self.agent_executor.ainvoke(
                 {
                     "input": message,
+                    "attempts_left": attempts_left
                 }
             )
             
-            # Add debug logging for verification
-            if "verify_answer" in str(response):
-                print(f"Answer verification response: {response}")  # 디버그 로그 추가
-                
-            print(f"Agent final response: {response['output']}")  # 디버그 로그 추가
+            print(f"Agent final response: {response['output']}")
             return response["output"]
-                
+            
         except Exception as e:
-            print(f"Error in process_message: {e}")  # 디버그 로그 추가
-            return "🤔 My mystical powers seem to be temporarily distracted. Please try again or start a new game with /start"
+            print(f"Error in process_message: {e}")
+            return "🤔 My mystical powers seem to be temporarily distracted..."
+
+    def get_next_hint(self) -> str:
+        """Get next hint from the riddle tool"""
+        riddle_tool = next((tool for tool in self.tools if tool.name == "get_next_riddle"), None)
+        if riddle_tool:
+            try:
+                return riddle_tool.run("")
+            except Exception as e:
+                print(f"Error getting hint: {e}")
+                return "Error getting hint"
+        return "No more hints available"
 
     def get_current_game_state(self) -> dict:
         """Get the current state of the game"""
