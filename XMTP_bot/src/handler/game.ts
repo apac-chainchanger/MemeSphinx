@@ -154,10 +154,9 @@ export async function handleGame(
       };
     }
 
-    console.log("5. Creating userInfo with displayName:", sender.displayName);
     const userInfo: UserInfo = {
       address: sender.address,
-      preferredName: sender.displayName
+      preferredName: sender.address
     };
 
     console.log("6. Calling textGeneration with userInfo:", userInfo);

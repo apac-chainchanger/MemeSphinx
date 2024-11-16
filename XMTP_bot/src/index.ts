@@ -27,7 +27,7 @@ run(async (context: HandlerContext) => {
         userPrompt.toLowerCase().includes(t)
       ));
 
-    if (matchingSkill) {
+    if (matchingSkill && matchingSkill.handler) {
       const response = await matchingSkill.handler(context);
       if (response) {
         await context.send(response.message);
