@@ -9,7 +9,7 @@ export const skills: SkillGroup[] = [{
   description: "Meme Coin riddle game",
   skills: [{
     skill: "game",
-    triggers: ["play", "game", "riddle", "sphinx"],
+    triggers: ["play", "game", "riddle", "sphinx", "lets", "go", "start"],
     handler: handleGame as SkillHandler,
     description: "Play the Meme Coin riddle game",
     examples: ["Let's play", "Is it DOGE?"],

@@ -23,9 +23,15 @@ run(async (context: HandlerContext) => {
 
     // Find matching skill handler
     const matchingSkill = skills.flatMap(g => g.skills)
-      .find(s => s.triggers.some(t => 
-        userPrompt.toLowerCase().includes(t)
-      ));
+      .find(s => 
+        s.triggers.some(t => userPrompt.toLowerCase().includes(t)) ||
+        s.skill === "game" // 게임이 진행 중일 때는 항상 game 핸들러로 처리
+      );
+
+    console.log("Checking for matching skill:", userPrompt);
+    if (matchingSkill) {
+      console.log("Found matching skill:", matchingSkill.skill);
+    }
 
     if (matchingSkill && matchingSkill.handler) {
       const response = await matchingSkill.handler(context);

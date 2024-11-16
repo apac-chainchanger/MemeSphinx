@@ -10,9 +10,9 @@ const GAME_CONSTANTS = {
 } as const;
 
 const RESPONSE_PATTERNS = {
-  WRONG: "[WRONG]",
-  VICTORY: "[VICTORY]",
-  DEFEAT: "[DEFEAT]"
+  WRONG: "WRONG",
+  VICTORY: "VICTORY",
+  DEFEAT: "DEFEAT"
 } as const;
 
 const MEME_COINS = {
