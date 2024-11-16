@@ -16,7 +16,7 @@ git clone https://github.com/apac-chainchanger/MemeSphinx.git
 
 ## 🌟 Key Features
 
-### 🎭 **Interactive Gameplay**
+### 🎭 **Interactive Gameplay(with XMTP)**
 
 - **Riddles from the Sphinx**: Encounter the Sphinx, a mystical character that presents clues and riddles about MEME coins.
   - Example: _"This coin is loved by Elon and adored by a certain Shiba Inu."_ (Answer: DOGE)
