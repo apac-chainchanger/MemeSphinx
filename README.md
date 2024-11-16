@@ -22,10 +22,11 @@ git clone https://github.com/apac-chainchanger/MemeSphinx.git
   - Example: _"This coin is loved by Elon and adored by a certain Shiba Inu."_ (Answer: DOGE)
 - **Guess the MEME Coin**: Players have **3 chances** to guess the correct MEME coin and win rewards.
 
-### 💰 **Rewards**
+### 💰 **Rewards(with Flow)**
 
-- Correct guesses are rewarded with MEME coins distributed via an EVM-compatible smart contract on the Flow blockchain.
-- Seamless integration ensures secure and scalable reward distribution.
+- Correct guesses are rewarded with MEME coins distributed via a smart contract built on the Flow blockchain, leveraging its EVM compatibility introduced in the Crescendo update.
+- Flow’s low fees, scalability, and developer-friendly environment made it the ideal choice for integrating MEME coin rewards.
+- The smart contract ensures secure, efficient, and transparent reward distribution, fully utilizing Flow's robust ecosystem for seamless execution.
 
 ### 🌐 **Cross-Platform Integration**
 
@@ -96,7 +97,7 @@ git clone https://github.com/apac-chainchanger/MemeSphinx.git
 - **For XMTP Bot**:
   ```bash
   cd XMTP_bot
-  npm install
+  yarn install
   ```
 
 ### **3. Run the Bots**
