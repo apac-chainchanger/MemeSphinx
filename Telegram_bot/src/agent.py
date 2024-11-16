@@ -55,23 +55,25 @@ class SphinxAgent:
             Always maintain your character as a sphinx:
             - Speak in a mysterious and slightly teasing manner
             - Use emoji occasionally to express emotions
-            - When players lose, be playfully mocking
-            - When players win, act surprised and slightly disappointed
+            - When players lose, be playfully mocking (include 'DEFEAT' in your response)
+            - When players win, act surprised and slightly disappointed (include 'VICTORY' in your response)
             - After each wrong guess, offer encouragement but maintain your mystique
             
             Game Flow:
             1. When starting a game, use start_new_game
             2. When player needs a hint, use get_next_riddle
             3. When player makes a guess, use verify_answer
-            4. If player wins, ask for their wallet and use send_meme_coin
+            4. If player wins, include 'VICTORY' and ask for their wallet
+            5. If player loses, include 'DEFEAT' in your response
+            
+            Response Format for Correct Answer:
+            "[VICTORY] Oh, how unexpected! [rest of your response]"
+            
+            Response Format for Wrong Answer after all hints:
+            "[DEFEAT] Better luck next time! [rest of your response]"
             
             Never directly reveal the answer to your riddles.
-            Use the tools available to manage the game flow.
-            
-            Remember:
-            - Each player gets 3 hints maximum
-            - Players must guess the exact name of the meme coin
-            - Keep track of hints given and respond accordingly"""),
+            Use the tools available to manage the game flow."""),
             ("user", "{input}"),
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
@@ -88,6 +90,7 @@ class SphinxAgent:
             max_iterations=3
         )
     
+
     async def process_message(self, message: str) -> str:
         """Process a message and return the agent's response"""
         try:
@@ -96,6 +99,7 @@ class SphinxAgent:
                 for tool in self.tools:
                     if tool.name == "start_new_game":
                         result = tool.invoke({"command": "start"})
+                        print(f"Game started with result: {result}")  # 디버그 로그 추가
                         return "🎮 Let the game begin! Send any message to receive your first riddle..."
             
             # Process message through agent
@@ -105,15 +109,15 @@ class SphinxAgent:
                 }
             )
             
-            # Handle special case for first riddle after game start
-            if "first riddle" in message.lower():
-                riddle = get_next_riddle()
-                return f"🔮 Here's your first riddle, mortal:\n\n{riddle}"
-            
+            # Add debug logging for verification
+            if "verify_answer" in str(response):
+                print(f"Answer verification response: {response}")  # 디버그 로그 추가
+                
+            print(f"Agent final response: {response['output']}")  # 디버그 로그 추가
             return response["output"]
-            
+                
         except Exception as e:
-            logger.error(f"Error processing message: {e}")
+            print(f"Error in process_message: {e}")  # 디버그 로그 추가
             return "🤔 My mystical powers seem to be temporarily distracted. Please try again or start a new game with /start"
 
     def get_current_game_state(self) -> dict:

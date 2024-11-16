@@ -91,9 +91,12 @@ def get_next_riddle() -> str:
     return hint
 
 @tool(args_schema=VerifyAnswerInput)
-def verify_answer(answer: str) -> bool:
+def verify_answer(answer: str) -> str:
     """Verify if the given answer matches the current meme coin."""
-    return meme_db.check_answer(answer)
+    is_correct = meme_db.check_answer(answer)
+    if is_correct:
+        return "[VICTORY] Correct answer!"
+    return "Incorrect answer. Try again!"
 
 @tool(args_schema=SendMemeCoinInput)
 def send_meme_coin(wallet_address: str) -> str:

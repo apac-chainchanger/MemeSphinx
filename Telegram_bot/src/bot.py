@@ -114,6 +114,9 @@ class MemeCoinSphinxBot:
         user_id = update.effective_user.id if update.effective_user else 0
         message_text = update.effective_message.text
         
+        # 디버그 로그 추가
+        print(f"Received message: {message_text}")
+        
         # Check if user has active session
         session = self.game_manager.get_session(user_id)
         
@@ -126,29 +129,49 @@ class MemeCoinSphinxBot:
         
         # Process message through agent
         response = await self.agent.process_message(message_text)
+        print(f"Agent response: {response}")  # 디버그 로그 추가
         
         # Handle victory
         if "VICTORY" in response.upper():
+            print("Victory condition detected")  # 디버그 로그 추가
             try:
-                with open(self.image_dir / "SadSphinx.png", "rb") as photo:
+                image_path = self.image_dir / "SadSphinx.png"
+                print(f"Trying to open image at: {image_path}")  # 디버그 로그 추가
+                
+                if not image_path.exists():
+                    print(f"Image file does not exist at {image_path}")  # 디버그 로그 추가
+                    raise FileNotFoundError(f"Image not found: {image_path}")
+                    
+                with open(image_path, "rb") as photo:
+                    print("Successfully opened image file")  # 디버그 로그 추가
                     await context.bot.send_photo(
                         chat_id=update.effective_chat.id,
                         photo=photo,
                         caption=VICTORY_MESSAGE,
                         parse_mode='Markdown'
                     )
+                    print("Successfully sent victory image")  # 디버그 로그 추가
                 self.game_manager.set_waiting_for_wallet(user_id)
             except Exception as e:
-                print(f"Error sending victory image: {e}")
+                print(f"Error sending victory image: {e}")  # 디버그 로그 추가
                 await update.effective_message.reply_text(
-                    VICTORY_MESSAGE,
+                    f"VICTORY_MESSAGE (Image error: {str(e)})",
                     parse_mode='Markdown'
                 )
         
         # Handle defeat
         elif "DEFEAT" in response.upper():
+            print("Defeat condition detected")  # 디버그 로그 추가
             try:
-                with open(self.image_dir / "SuperHappySphinx.png", "rb") as photo:
+                image_path = self.image_dir / "SuperHappySphinx.png"
+                print(f"Trying to open image at: {image_path}")  # 디버그 로그 추가
+                
+                if not image_path.exists():
+                    print(f"Image file does not exist at {image_path}")  # 디버그 로그 추가
+                    raise FileNotFoundError(f"Image not found: {image_path}")
+                    
+                with open(image_path, "rb") as photo:
+                    print("Successfully opened image file")  # 디버그 로그 추가
                     await context.bot.send_photo(
                         chat_id=update.effective_chat.id,
                         photo=photo,
@@ -158,9 +181,10 @@ class MemeCoinSphinxBot:
                         ),
                         parse_mode='Markdown'
                     )
+                    print("Successfully sent defeat image")  # 디버그 로그 추가
                 self.game_manager.set_cooldown(user_id, config.COOLDOWN_SECONDS)
             except Exception as e:
-                print(f"Error sending defeat image: {e}")
+                print(f"Error sending defeat image: {e}")  # 디버그 로그 추가
                 await update.effective_message.reply_text(
                     DEFEAT_MESSAGE.format(
                         coin_name=self.game_manager.get_current_coin(user_id),
