@@ -146,6 +146,19 @@ Special thanks to our partners:
 - **XMTP**: For wallet-based communication technology.
 - **Flow Blockchain**: For scalable and secure smart contracts.
 
----
+## 👥 Who We Are?
 
+### 🤖 LLM Agent & Bot Developer
+> 💬 Contact on Telegram! [@AndrewS0ng](https://t.me/AndrewS0ng)
+* 🔌 Developed XMTP & Telegram bot integration
+* 🧠 Implemented GPT-4 powered game logic
+* 🎤 Created project presentation
+
+### 👨‍💻 SmartContract Developer
+> 💬 Contact on Telegram! [@jaysongthedev](https://t.me/jaysongthedev)
+* 🔧 Designed & implemented MemeSphinx Token Manager
+* 🛡️ Built secure token distribution system
+* 🪙 Developed test token contracts (tDOGE, tPEPE, tSHIB)
+
+---
 Start your journey with MemeSphinx today and dive into the world of MEME coins!
