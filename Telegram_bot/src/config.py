@@ -3,11 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Get the absolute path to the root directory
-ROOT_DIR = Path(__file__).parent.parent
-
-# Load environment variables from .env file in root directory
-load_dotenv(ROOT_DIR / '.env')
+# Load environment variables
+load_dotenv()
 
 @dataclass
 class Config:
@@ -16,7 +13,7 @@ class Config:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     
     # Path configurations
-    BASE_DIR: Path = ROOT_DIR
+    BASE_DIR: Path = Path(__file__).parent.parent
     IMAGE_DIR: Path = BASE_DIR / "image"
     
     # Game configurations
@@ -24,16 +21,16 @@ class Config:
     COOLDOWN_SECONDS: int = 30
     
     # Agent configurations
-    MODEL_NAME: str = os.getenv("MODEL_NAME", "gpt-4")
-    TEMPERATURE: float = float(os.getenv("TEMPERATURE", "0.7"))
+    MODEL_NAME: str = "gpt-4"
+    TEMPERATURE: float = 0.7
     
     @classmethod
     def validate(cls) -> None:
         """Validate that all required environment variables are set."""
         if not cls.TELEGRAM_TOKEN:
-            raise ValueError("TELEGRAM_TOKEN environment variable is not set in .env")
+            raise ValueError("TELEGRAM_TOKEN environment variable is not set")
         if not cls.OPENAI_API_KEY:
-            raise ValueError("OPENAI_API_KEY environment variable is not set in .env")
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
         
         # Validate image directory exists
         if not cls.IMAGE_DIR.exists():

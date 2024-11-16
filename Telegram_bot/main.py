@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from src.bot import MemeCoinSphinxBot
 from src.config import config
@@ -12,29 +11,29 @@ logging.basicConfig(
 # Create logger
 logger = logging.getLogger(__name__)
 
-async def main() -> None:
+def main() -> None:
     try:
         # Validate configuration
         config.validate()
         
         # Initialize bot
         bot = MemeCoinSphinxBot()
-        application = await bot.initialize()
+        application = bot.initialize()
         
-        # Start polling with proper async handling
-        await application.run_polling(allowed_updates=["message", "callback_query"])
+        # Start the bot
+        logger.info("Starting bot...")
+        application.run_polling()
         
     except Exception as e:
         logger.error(f"Error starting bot: {e}")
         raise
+    finally:
+        logger.info("Shutting down...")
 
-def run_bot():
+if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        main()
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
     except Exception as e:
-        logger.error(f"Fatal error: {e}")
-
-if __name__ == "__main__":
-    run_bot()
+        logger.error(f"Bot stopped due to error: {e}")

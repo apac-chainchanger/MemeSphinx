@@ -1,6 +1,8 @@
 from langchain.tools import tool
-from typing import Optional
+from typing import Optional, Dict, Any
+from pydantic import BaseModel, Field
 import re
+import random
 
 class MemeDatabase:
     """Mock database of meme coins and their characteristics"""
@@ -20,14 +22,19 @@ class MemeDatabase:
                     "From imageboards to blockchain, I am the face of resistance"
                 ]
             },
-            # Add more meme coins here
+            "SHIB": {
+                "hints": [
+                    "I followed in the pawsteps of the original",
+                    "They call me the DOGE killer",
+                    "My army grows stronger with each passing day"
+                ]
+            }
         }
         self.current_coin = None
         self.hint_index = 0
     
     def select_random_coin(self):
         """Select a random coin for the game"""
-        import random
         self.current_coin = random.choice(list(self.meme_coins.keys()))
         self.hint_index = 0
         return self.current_coin
@@ -51,7 +58,31 @@ class MemeDatabase:
 # Initialize the database
 meme_db = MemeDatabase()
 
-@tool
+# Tool input schemas
+class StartGameInput(BaseModel):
+    """Input for starting a new game"""
+    command: str = Field(default="start", description="Command to start the game")
+
+class VerifyAnswerInput(BaseModel):
+    """Schema for verify_answer input"""
+    answer: str = Field(..., description="The answer to verify")
+
+class GetRiddleInput(BaseModel):
+    """Schema for get_next_riddle input"""
+    pass  # No input needed
+
+class SendMemeCoinInput(BaseModel):
+    """Schema for send_meme_coin input"""
+    wallet_address: str = Field(..., description="The wallet address to send the reward to")
+
+# Tool definitions
+@tool(args_schema=StartGameInput)
+def start_new_game(command: str = "start") -> str:
+    """Start a new game by selecting a random meme coin."""
+    coin = meme_db.select_random_coin()
+    return f"New game started (internal: {coin})"
+
+@tool(args_schema=GetRiddleInput)
 def get_next_riddle() -> str:
     """Get the next riddle about the current meme coin."""
     hint = meme_db.get_next_hint()
@@ -59,25 +90,19 @@ def get_next_riddle() -> str:
         return "No more hints available"
     return hint
 
-@tool
+@tool(args_schema=VerifyAnswerInput)
 def verify_answer(answer: str) -> bool:
     """Verify if the given answer matches the current meme coin."""
     return meme_db.check_answer(answer)
 
-@tool
-def start_new_game() -> str:
-    """Start a new game by selecting a random meme coin."""
-    coin = meme_db.select_random_coin()
-    return f"New game started (internal: {coin})"
-
-@tool
+@tool(args_schema=SendMemeCoinInput)
 def send_meme_coin(wallet_address: str) -> str:
     """Send meme coin reward to the winner's wallet address."""
-    # Validate wallet address format
     if not re.match(r"^0x[a-fA-F0-9]{40}$", wallet_address):
         return "Invalid wallet address format"
     
     # Placeholder for actual sending logic
-    # ...
+    # Here you would integrate with your blockchain interaction code
+    # For example: send_transaction(wallet_address, reward_amount)
     
     return f"Reward sent to {wallet_address}"
