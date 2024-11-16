@@ -1,5 +1,147 @@
 import { HandlerContext, SkillResponse, textGeneration, UserInfo, getUserInfo } from "@xmtp/message-kit";
 import { game_prompt } from "../prompt.js";
+import dotenv from "dotenv";
+import { ethers } from "ethers";
+dotenv.config();
+
+// Token Info
+interface TokenInfo {
+  symbol: string;
+  address: string;
+  initialSupply: bigint;
+}
+
+// Token Operations
+
+// ABI definitions
+const TOKEN_MANAGER_ABI = [
+  "function registerToken(string memory symbol, address tokenAddress) external",
+  "function sendToken(string memory symbol, address destination, uint256 amount) external",
+  "function managerWallet() external view returns (address)",
+];
+
+const ERC20_ABI = [
+  "function approve(address spender, uint256 amount) external returns (bool)",
+  "function allowance(address owner, address spender) external view returns (uint256)",
+  "function balanceOf(address account) external view returns (uint256)",
+  "function decimals() external view returns (uint8)",
+];
+
+export class TokenOperations {
+  private provider: ethers.Provider;
+  private signer: ethers.Signer;
+  private tokenManager: ethers.Contract;
+
+  constructor(tokenManagerAddress: string, rpcUrl: string, privateKey: string) {
+    this.provider = new ethers.JsonRpcProvider(rpcUrl);
+    this.signer = new ethers.Wallet(privateKey, this.provider);
+    this.tokenManager = new ethers.Contract(
+      tokenManagerAddress,
+      TOKEN_MANAGER_ABI,
+      this.signer
+    );
+  }
+
+  /**
+   * 토큰 등록
+   */
+  async registerToken(symbol: string, tokenAddress: string): Promise<string> {
+    try {
+      console.log(`Registering token ${symbol} at address ${tokenAddress}...`);
+      const tx = await this.tokenManager.registerToken(symbol, tokenAddress);
+      const receipt = await tx.wait();
+      console.log(`Token registered. Transaction hash: ${receipt.hash}`);
+      return receipt.hash;
+    } catch (error) {
+      console.error(`Failed to register token ${symbol}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 토큰 전송
+   */
+  async sendToken(
+    symbol: string,
+    destination: string,
+    amount: string | bigint,
+    waitForConfirmation: boolean = true
+  ): Promise<string> {
+    try {
+      console.log(`Sending ${amount} ${symbol} to ${destination}...`);
+      const tx = await this.tokenManager.sendToken(symbol, destination, amount);
+
+      if (waitForConfirmation) {
+        const receipt = await tx.wait();
+        console.log(`Tokens sent. Transaction hash: ${receipt.hash}`);
+        return receipt.hash;
+      }
+
+      return tx.hash;
+    } catch (error) {
+      console.error(`Failed to send token ${symbol}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * ERC20 토큰 승인
+   */
+  async approveToken(
+    tokenAddress: string,
+    spenderAddress: string,
+    amount: string | bigint,
+    waitForConfirmation: boolean = true
+  ): Promise<string> {
+    try {
+      console.log(`Approving ${amount} tokens for ${spenderAddress}...`);
+      const token = new ethers.Contract(tokenAddress, ERC20_ABI, this.signer);
+      const tx = await token.approve(spenderAddress, amount);
+
+      if (waitForConfirmation) {
+        const receipt = await tx.wait();
+        console.log(`Approval complete. Transaction hash: ${receipt.hash}`);
+        return receipt.hash;
+      }
+
+      return tx.hash;
+    } catch (error) {
+      console.error("Failed to approve tokens:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * 현재 승인된 수량 확인
+   */
+  async getAllowance(
+    tokenAddress: string,
+    ownerAddress: string,
+    spenderAddress: string
+  ): Promise<bigint> {
+    const token = new ethers.Contract(tokenAddress, ERC20_ABI, this.provider);
+    return await token.allowance(ownerAddress, spenderAddress);
+  }
+
+  /**
+   * 토큰 잔액 조회
+   */
+  async getTokenBalance(
+    tokenAddress: string,
+    addressToCheck: string
+  ): Promise<bigint> {
+    const token = new ethers.Contract(tokenAddress, ERC20_ABI, this.provider);
+    return await token.balanceOf(addressToCheck);
+  }
+
+  /**
+   * 토큰의 소수점 자릿수 조회
+   */
+  async getTokenDecimals(tokenAddress: string): Promise<number> {
+    const token = new ethers.Contract(tokenAddress, ERC20_ABI, this.provider);
+    return await token.decimals();
+  }
+}
 
 // Constants
 const GAME_CONSTANTS = {
@@ -19,7 +161,7 @@ const MEME_COINS = {
   "DOGE": {
     hints: [
       "I am the original meme, born from a Shiba's smile",
-      "Elon's tweets make me wag my tail",
+      "Elon's tweets make me wag my tail", 
       "Much wow, such coin, very crypto"
     ]
   },
@@ -42,7 +184,7 @@ const MEME_COINS = {
 // Types
 export enum GameState {
   NOT_STARTED = "not_started",
-  IN_PROGRESS = "in_progress",
+  IN_PROGRESS = "in_progress", 
   COOLDOWN = "cooldown",
   WAITING_FOR_WALLET = "waiting_for_wallet"
 }
@@ -107,7 +249,7 @@ const memeDb = new MemeDatabase();
 async function handleVictory(context: HandlerContext, session: UserSession): Promise<void> {
   try {
     const { address } = session;
-    
+
     // Send congratulatory message
     await context.send(`🎉 Congratulations! You've won ${GAME_CONSTANTS.REWARD_AMOUNT} ${GAME_CONSTANTS.REWARD_TOKEN}!`);
     
@@ -136,6 +278,49 @@ async function distributeReward(address: string): Promise<void> {
     // For example:
     // await sendTokens(address, GAME_CONSTANTS.REWARD_AMOUNT, GAME_CONSTANTS.REWARD_TOKEN);
     console.log(`Reward distributed to ${address}`);
+    const RPC_URL = process.env.RPC_URL || "http://localhost:8545";
+    const PRIVATE_KEY = process.env.PRIVATE_KEY || "YOUR_PRIVATE_KEY"; // managerWallet의 private key
+  
+    const TOKEN_MANAGER_ADDRESS = "0x9500425f4D0D9e60650332A3AB8bf3F42F63A89E";
+    const MANAGER_WALLET = "0x21E122B701aFae76085e31faDCfDF16C0E40452b";
+    // 테스트 수신자 주소 .env에 저장
+    const TEST_RECIPIENT = process.env.TEST_RECIPIENT || "";
+  
+    const tokens: TokenInfo[] = [
+      {
+        symbol: "tDOGE",
+        address: "0x3129Db2b25044Fc2AfCD848eC9bf1fa2E1E085A7",
+        initialSupply: ethers.parseEther("1000000"),
+      },
+      {
+        symbol: "tPEPE",
+        address: "0xf8d866693e16BAf0f64337264FF99Eb1F3209253",
+        initialSupply: ethers.parseEther("1000000"),
+      },
+      {
+        symbol: "tSHIB",
+        address: "0x85780D4ccC843F01C16389B0C95B8d8916C61611",
+        initialSupply: ethers.parseEther("1000000"),
+      },
+    ];
+  
+    // Initialize TokenOperations
+    const tokenOps = new TokenOperations(
+      TOKEN_MANAGER_ADDRESS,
+      RPC_URL,
+      PRIVATE_KEY
+    );
+    const sendAmount = ethers.parseEther("100"); // Send 100 tokens
+    
+    const sendTx = await tokenOps.sendToken(
+      ["tDOGE", "tPEPE", "tSHIB"][Math.floor(Math.random() * 3)],
+      TEST_RECIPIENT,
+      sendAmount
+    );
+    console.log(`Send transaction: ${sendTx}`);
+
+    // Wait for a moment to ensure transaction is processed
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   } catch (error) {
     console.error("Error in distributeReward:", error);
     throw error;
